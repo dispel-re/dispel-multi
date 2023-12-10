@@ -1,19 +1,32 @@
 package action
 
 import (
-	"github.com/dispel-re/dispel-multi/console/client"
+	"fmt"
+
+	"github.com/dispel-re/dispel-multi/console"
+	"github.com/dispel-re/dispel-multi/console/database"
 	"github.com/urfave/cli/v3"
 )
 
 func ConsoleCommand() *cli.Command {
 	cmd := &cli.Command{
 		Name:        "console",
-		Description: "Choose command and execute it in interactive interface",
+		Description: "Start console server",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "console-addr",
 				Value: defaultConsoleAddr,
 				Usage: "Port for the console server",
+			},
+			&cli.StringFlag{
+				Name:  "database-type",
+				Value: "memory",
+				Usage: "Database type (memory, sqlite)",
+			},
+			&cli.StringFlag{
+				Name:  "sqlite-path",
+				Value: "dispel-multi.sqlite",
+				Usage: "Path to sqlite database file",
 			},
 		},
 	}
@@ -21,11 +34,37 @@ func ConsoleCommand() *cli.Command {
 	cmd.Action = func(c *cli.Context) error {
 		consoleAddr := c.String("console-addr")
 
-		_ = client.New(consoleAddr)
+		var (
+			db  *database.SQLite
+			err error
+		)
+		switch c.String("database-type") {
+		case "memory":
+			db, err = database.NewMemory()
+			if err != nil {
+				return err
+			}
+		case "sqlite":
+			db, err = database.NewLocal(c.String("sqlite-path"))
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("unknown database type: %q", c.String("database-type"))
+		}
 
-		// Run fzf-like interface to select the action and name the parameters
+		queries, err := db.Queries()
+		if err != nil {
+			return err
+		}
 
-		return nil
+		if err := database.Seed(queries); err != nil {
+			return err
+		}
+
+		con := console.NewConsole(queries, nil)
+
+		return con.Serve(c.Context, consoleAddr, "")
 	}
 
 	return cmd

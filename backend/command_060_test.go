@@ -1,10 +1,10 @@
 package backend
 
 import (
-	"context"
 	"testing"
 
-	"github.com/dispel-re/dispel-multi/internal/database"
+	"connectrpc.com/connect"
+	v1 "github.com/dispel-re/dispel-multi/gen/multi/v1"
 	"github.com/dispel-re/dispel-multi/model"
 	"github.com/stretchr/testify/assert"
 )
@@ -27,29 +27,24 @@ func TestGetCharactersRequest(t *testing.T) {
 }
 
 func TestBackend_HandleGetCharacters(t *testing.T) {
-	db := testDB(t)
-	user, err := db.CreateUser(context.TODO(), database.CreateUserParams{
-		Username: "tester",
-		Password: "password",
-	})
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	db.CreateCharacter(context.TODO(), database.CreateCharacterParams{
-		CharacterName: "character1",
-		UserID:        user.ID,
-		SortOrder:     1,
-	})
-	db.CreateCharacter(context.TODO(), database.CreateCharacterParams{
-		CharacterName: "character2",
-		UserID:        user.ID,
-		SortOrder:     2,
-	})
-
-	b := &Backend{DB: db}
+	b := &Backend{CharacterClient: &mockCharacterClient{
+		ListCharactersResponse: connect.NewResponse(&v1.ListCharactersResponse{
+			Characters: []*v1.Character{
+				{
+					UserId:        1,
+					CharacterId:   1,
+					CharacterName: "character1",
+				},
+				{
+					UserId:        1,
+					CharacterId:   2,
+					CharacterName: "character2",
+				},
+			},
+		}),
+	}}
 	conn := &mockConn{}
-	session := &model.Session{ID: "TEST", Conn: conn, UserID: user.ID, Username: "JP"}
+	session := &model.Session{ID: "TEST", Conn: conn, UserID: 1, Username: "JP"}
 
 	assert.NoError(t, b.HandleGetCharacters(session, GetCharactersRequest("tester\x00")))
 	assert.Equal(t, []byte{255, 60, 34, 0}, conn.Written[0:4])     // Header

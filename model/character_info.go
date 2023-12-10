@@ -35,10 +35,13 @@ type CharacterInfo struct {
 	Archery              uint16
 	Polearms             uint16
 	Wizardry             uint16
-	Unknown              []byte // Unknown
+	Unknown              []byte
+	// HolyMagic            uint16
+	// DarkMagic            uint16
+	// BonusPoints          uint16
 }
 
-func NewCharacterInfo(buf []byte) CharacterInfo {
+func ParseCharacterInfo(buf []byte) CharacterInfo {
 	return CharacterInfo{
 		Strength:             binary.LittleEndian.Uint16(buf[0:2]),
 		Agility:              binary.LittleEndian.Uint16(buf[2:4]),
